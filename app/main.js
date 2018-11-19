@@ -1,3 +1,5 @@
+var editor = null;
+var layerList = null;
 define([
     "esri/config",
     "esri/map",
@@ -5,151 +7,216 @@ define([
     "esri/dijit/LayerList",
     "esri/dijit/Legend",
     "esri/dijit/editing/Editor",
-    "extras/Search",
-    'app/widgets/WidgetDemo/widget', 
-    'app/widgets/editor/widget',    
+    'app/widgets/WidgetDemo/widget',
+    'app/widgets/editor/widget',
+    'app/widgets/identificar/widget',
+    'app/widgets/Search/widget',
+    'app/utils/maputils',
+    'app/utils/popupMedidores',
+    'app/utils/popupContratos',
+    'app/utils/popupFacilidades',
+    'app/utils/popupPozos',
+    'app/utils/popupTanques',
     "esri/layers/FeatureLayer",
-    "esri/tasks/GeometryService",
+    "esri/dijit/Scalebar",
+    "esri/dijit/HomeButton",
+    "esri/dijit/BasemapGallery",
     "esri/toolbars/draw",
     "dojo/dom-construct",
     "dojo/keys",
+    'dojo/on',
     "dojo/parser",
+    'dojo/_base/lang',
     "dojo/_base/array",
     "dojo/i18n!esri/nls/jsapi",
+    'dojo/text!./config.json',
     "dijit/layout/BorderContainer",
     "dijit/layout/ContentPane",
-    "dijit/layout/TabContainer",    
+    "dijit/layout/TabContainer",
     "dojo/domReady!"
 ], function (
     esriConfig, Map, SnappingManager, LayerList, Legend, Editor,
-    Search,WidgetDemo,Editor,
-    FeatureLayer, GeometryService,
-    Draw, domConstruct,keys, parser, arrayUtils, i18n
+    WidgetDemo, Editor, identificar, buscar, maputils, popupMedidores,
+    popupContratos, popupFacilidades, popupPozos, popupTanques,
+    FeatureLayer, Scalebar, HomeButton, BasemapGallery,
+    Draw, domConstruct, keys, on, parser, lang, arrayUtils, i18n, config
 ) {
 
         parser.parse();
-        var map = new Map("map", {
-            basemap: "topo",
-            center: [-73.78, 6.95],
-            zoom: 12
-        });
-        /*var aux=dojo.byId("aux");
-        var aux1=dijit.byId("aux");     
-        console.log(aux);
-        console.log(aux1);*/
-       
-        //snapping is enabled for this sample - change the tooltip to reflect this
-        // i18n.toolbars.draw.start += "<br/>Press <b>CTRL</b> to enable snapping";
-        // i18n.toolbars.draw.addPoint += "<br/>Press <b>CTRL</b> to enable snapping";
+        var configCapas = JSON.parse(config);
+        var map = maputils;
+        var tabEditor = dijit.byId("editor");
+        tabEditor.watch("selectedChildWidget", lang.hitch(this, function (name, oval, nval) {
+            if (nval.title !== 'Editor') {
+                if (dojo.byId("editorDiv")) {
+                    this.editor.template.destroy();
+                    this.editor.destroy();
+                    this.editor = null;                    
+                }
+                // else if (nval.title !== 'Busqueda') {
+                //     addLayers();
+                //     //removerRelaciones();                
+                // }
+            }
+            else {
+                domConstruct.create("div", { id: "editorDiv", innerHTML: "" }, "templatePickerPane");
+                this.editor = new Editor(
+                    {
+                        map: map
+                    }, "editorDiv"
+                );
+                this.editor.startup();
+            }
 
-        //This sample requires a proxy page to handle communications with the ArcGIS Server services. You will need to
-        //replace the url below with the location of a proxy on your machine. See the 'Using the proxy page' help topic
-        //for details on setting up a proxy page.
-       
+        }));
+        addLayers();
+        map.on("layer-add", lang.hitch(this, function () {
+            var array = [];
+            var layers = Object.keys(map._layers);
+            for (var i = 0; i < layers.length; i++) {
+                var layer = {};
+                if (layers[i] !== 'layer0' && layers[i] !== 'map_graphics') {
+                    layer["layer"] = map._layers[layers[i]];
+                    if (map._layers[layers[i]].infoTemplate.info) {
+                        layer["title"] = map._layers[layers[i]].infoTemplate.info.title;
+                    }
+                    else {
+                        layer["title"] = map._layers[layers[i]].infoTemplate.title + " " + map._layers[layers[i]].id;
+                    }
+                    layer["visibility"] = true;
+                    array.push(layer);
+                }
+            }
+            if (this.layerList) {
+                this.layerList.destroy();
+                domConstruct.create("div", { id: "layerList", innerHTML: "" }, "layerListCon");
+                this.layerList = new LayerList({
+                    map: map,
+                    layers: array,
+                    removeUnderscores: true,
+                    showOpacitySlider: true,
+                    showSubLayers: true
+                }, "layerList");
+                this.layerList.startup();
 
-        
+            }
+            else {
+                this.layerList = new LayerList({
+                    map: map,
+                    layers: array,
+                    removeUnderscores: true,
+                    showOpacitySlider: true,
+                    showSubLayers: true
+                }, "layerList");
+                this.layerList.startup();
 
-        // map.on("layers-add-result", initEditing);
-
-        var operationsPointLayer_facilidad = new FeatureLayer("https://services9.arcgis.com/mUzsVrpsS8a8ZBgW/ArcGIS/rest/services/Datos/FeatureServer/0", {
-            mode: FeatureLayer.MODE_ONDEMAND,
-            outFields: ["*"]
-        });
-        var operationsPointLayer_medidoresp = new FeatureLayer("https://services9.arcgis.com/mUzsVrpsS8a8ZBgW/ArcGIS/rest/services/Datos/FeatureServer/1", {
-            mode: FeatureLayer.MODE_ONDEMAND,
-            outFields: ["*"]
-        });
-        var operationsPointLayer_pozos = new FeatureLayer("https://services9.arcgis.com/mUzsVrpsS8a8ZBgW/ArcGIS/rest/services/Datos/FeatureServer/2", {
-            mode: FeatureLayer.MODE_ONDEMAND,
-            outFields: ["*"]
-        });
-        var operationsPointLayer_tanques = new FeatureLayer("https://services9.arcgis.com/mUzsVrpsS8a8ZBgW/ArcGIS/rest/services/Datos/FeatureServer/3", {
-            mode: FeatureLayer.MODE_ONDEMAND,
-            outFields: ["*"]
-        });
-        var operationsPolygonLayer_contrato = new FeatureLayer("https://services9.arcgis.com/mUzsVrpsS8a8ZBgW/ArcGIS/rest/services/Datos/FeatureServer/4", {
-            mode: FeatureLayer.MODE_ONDEMAND,
-            outFields: ["*"]
-        });
-
-        map.addLayers([
-            operationsPolygonLayer_contrato,
-            operationsPointLayer_pozos,
-            operationsPointLayer_tanques,
-            operationsPointLayer_medidoresp,
-            operationsPointLayer_facilidad
-        ]);
-        // map.infoWindow.resize(400, 300);
-
-        var layerList = new LayerList({
+            }
+        }));
+        var scalebar = new Scalebar({
             map: map,
-            removeUnderscores: true,
-            showLegend: true,
-            showOpacitySlider: true,
-            showSubLayers: true
-        }, "layerList");
-        layerList.startup();
-
+            scalebarStyle: "ruler",
+            scalebarUnit: "metric"
+        });
+        var home = new HomeButton({
+            map: map
+        }, "HomeButton");
+        home.startup();
+        var basemapGallery = new BasemapGallery({
+            showArcGISBasemaps: true,
+            map: map
+        }, "basemapGallery");
+        basemapGallery.startup();
         var legend = new Legend({
             map: map
-
         }, "legend");
         legend.startup();
 
-        var search = new Search({
+        /*var search = new Search({
             map: map
         }, "search");
         search.startup();
-        var demoWidget = new WidgetDemo({          
+        var demoWidget = new WidgetDemo({
             map: map,
             url: 'http://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Counties_Generalized/FeatureServer/0'
-          }, 'demo');
-        demoWidget.startup();
-        var editor= new Editor(
+        }, 'demo');
+        demoWidget.startup();*/
+        editor = new Editor(
             {
-                map: map 
-            },"editorDiv"
+                map: map
+            }, "editorDiv"
         );
         editor.startup();
-       /* aux1.watch("selectedChildWidget", function(name, oval, nval){
-            if(nval.title!=='Editor')
-            {
-                editor.destroy();
-                editor=null;
-                alert("hola");
-            }
-            else
-            {
-                domConstruct.create("div", { id: "editorDiv", innerHTML: "" }, "templatePickerPane");
-                var editor= new Editor(
-                    {
-                        map: map 
-                    },"editorDiv"
-                );
-                editor.startup();
-                // map.on("layers-add-result", initEditing);
-            }
-            console.log("selected child changed from ", oval, " to ", nval);
-        });*/
-        function initEditing(event) {
-            var featureLayerInfos = arrayUtils.map(event.layers, function (layer) {
-                return {
-                    "featureLayer": layer.layer
-                };
+        var busca = new buscar({
+            map: map,
+            configCapas: configCapas
+        }, "busqueda");
+        busca.startup();
+        /*var identi=new identificar({
+            map:map,
+            url:"http://localhost:6080/arcgis/rest/services/Capas/capasEdicion/MapServer"
+        },"identificar");
+        identi.startup();  */
+        function addLayers() {
+            var arrayLayers = [];
+            var operationsPointLayer_facilidad = new FeatureLayer(configCapas.capaFacilidades.url, {
+                mode: FeatureLayer.MODE_ONDEMAND,
+                outFields: ["*"],
+                infoTemplate: popupFacilidades,
+                id: configCapas.capaFacilidades.id
+
             });
+            var operationsPointLayer_medidoresp = new FeatureLayer(configCapas.capaMedidores.url, {
+                mode: FeatureLayer.MODE_ONDEMAND,
+                outFields: ["*"],
+                infoTemplate: popupMedidores,
+                id: configCapas.capaMedidores.id
+            });
+            var operationsPointLayer_pozos = new FeatureLayer(configCapas.capaPozos.url, {
+                mode: FeatureLayer.MODE_ONDEMAND,
+                outFields: ["*"],
+                infoTemplate: popupPozos,
+                id: configCapas.capaPozos.id
+            });
+            var operationsPointLayer_tanques = new FeatureLayer(configCapas.capaTanques.url, {
+                mode: FeatureLayer.MODE_ONDEMAND,
+                outFields: ["*"],
+                infoTemplate: popupTanques,
+                id: configCapas.capaTanques.id
+            });
+            var operationsPolygonLayer_contrato = new FeatureLayer(configCapas.capaContratos.url, {
+                mode: FeatureLayer.MODE_ONDEMAND,
+                outFields: ["*"],
+                infoTemplate: popupContratos,
+                id: configCapas.capaContratos.id
+            });
+            arrayLayers.push(operationsPolygonLayer_contrato);            
+            arrayLayers.push(operationsPointLayer_tanques);
+            arrayLayers.push(operationsPointLayer_medidoresp);
+            arrayLayers.push(operationsPointLayer_pozos);
+            arrayLayers.push(operationsPointLayer_facilidad);
+            
+            for (var i = 0; i < arrayLayers.length; i++) {
+                var layerTemp = map.getLayer(arrayLayers[i].id);
+                if (layerTemp) {
+                    map.removeLayer(layerTemp);
+                }               
+                map.addLayer(arrayLayers[i]);
+            }
+        }
+        function removerRelaciones()
+        {
+            var layerIds=map.layerIds;
+            for(var i=0;i<layerIds.length;i++)
+            {
+                var layer=map.getLayer(layerIds[i]);
+                if(layer.infoTemplate.title)
+                {
+                    if(layer.infoTemplate.title==='Enlace')
+                    {
+                        map.removeLayer(layer);                        
+                    }
+                }
+            }
 
-            var settings = {
-                map: map,
-                layerInfos: featureLayerInfos
-            };
-            var params = {
-                settings: settings
-            };
-            editorWidget = new Editor(params, 'editorDiv');
-            editorWidget.startup();
-
-            //snapping defaults to Cmd key in Mac & Ctrl in PC.
-            //specify "snapKey" option only if you want a different key combination for snapping
-            map.enableSnapping();
         }
     });
