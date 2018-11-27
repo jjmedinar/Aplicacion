@@ -33,7 +33,7 @@ define([
   declare, lang, topic, dom, Memory, Select, ComboBox, CheckBox, Evented, dojoBtn,
   _WidgetBase, _TemplatedMixin,
   FeatureLayer, LineSymbol, SimpleLineSymbol, Polyline, SpatialReference, UniqueValueRenderer, SimpleRenderer, Color, InfoTemplate, graphicsUtils, Query, QueryTask,
-  popupMedidores,popupPozos,popupTanques, templateString,
+  popupMedidores, popupPozos, popupTanques, templateString,
   config
 ) {
 
@@ -47,6 +47,7 @@ define([
       baseClass: 'widget-search',
       map: null,
       configCapas: null,
+      checkBoxes:null,
       jsonFacilidades: {},
 
       postCreate: function () {
@@ -71,7 +72,7 @@ define([
       },
       _jsonContratos: function (results) {
         var jsonContratos = {};
-        selectedItems = { facilidad: [], pozos: [], tanques: [], medidores: [] };
+        selectedItems = { facilidad: [], pozo: [], tanque: [], medidor: [] };
         jsonContratos.contratos = [];
         results.features.forEach(function (elemento) {
           var jsonContrato = {};
@@ -86,7 +87,7 @@ define([
           document.getElementById("combosSearch").style.display = "none";
           document.getElementById("relaciones").style.display = "none";
           this._consulta(this.config.urlContrato, ["CONTRATO_N", "ID_CONTRATO"], "CONTRATO_N", "CONTRATO_N is not null and ID_CONTRATO is not null and id_contrato=" + select.item.id_contrato, this._zoomFeatures, true);
-          this._consulta(this.config.urlFacilidades, ["facilidad", "id_facilidad"], "facilidad", "facilidad is not null and id_facilidad is not null and id_contrato=" + select.item.id_contrato, this._jsonFacilidades, false);
+          this._consulta(this.config.urlFacilidades, ["facilidad", "id_facilidad"], "facilidad", "facilidad is not null and id_facilidad is not null and id_contrato=" + select.item.id_contrato, this._jsonFacilidades, true);
           this._agregarLayer(this.configCapas.capaMedidores.url, this.configCapas.capaMedidores.id, "1=1", popupMedidores);
           this._agregarLayer(this.configCapas.capaPozos.url, this.configCapas.capaPozos.id, "1=1", popupPozos);
           this._agregarLayer(this.configCapas.capaTanques.url, this.configCapas.capaTanques.id, "1=1", popupTanques);
@@ -99,8 +100,8 @@ define([
         jsonFacilidades.facilidades = [];
         results.features.forEach(lang.hitch(this, function (elemento) {
           var jsonFacilidad = {};
-          jsonFacilidad["nombre"] = elemento.attributes.facilidad;
-          jsonFacilidad["id_facilidad"] = elemento.attributes.id_facilidad;
+          jsonFacilidad["nombre"] = elemento.attributes.FACILIDAD;
+          jsonFacilidad["id_facilidad"] = elemento.attributes.ID_FACILIDAD;
           jsonFacilidades.facilidades.push(jsonFacilidad);
         }));
         if (jsonFacilidades.facilidades.length > 0) {
@@ -116,7 +117,7 @@ define([
               this._consulta(this.config.urlFacilidades, ["facilidad", "id_facilidad"], "facilidad", "facilidad is not null and id_facilidad is not null and id_facilidad=" + select.item.id_facilidad, this._zoomFeatures, true);
               this._consulta(this.config.urlPozos, ["pozo", "id_pozo", "id_facilidad"], "pozo", "pozo is not null and id_pozo is not null and id_facilidad=" + select.item.id_facilidad, this._jsonPozos, true);
               this._consulta(this.config.urlTanques, ["tanque", "id_tanque", "id_facilidad"], "tanque", "tanque is not null and id_tanque is not null and id_facilidad=" + select.item.id_facilidad, this._jsonTanques, true);
-              this._consulta(this.config.urlMedidores, ["medidor", "id_medidor", "id_facilidad"], "medidor", "medidor is not null and id_medidor is not null and id_facilidad=" + select.item.id_facilidad, this._jsonMedidores, true);
+              this._consulta(this.config.urlMedidores, ["medidor", "id_medidor", "id_facilidad", "tipo_medidor"], "medidor", "medidor is not null and id_medidor is not null and id_facilidad=" + select.item.id_facilidad, this._jsonMedidores, true);
               document.getElementById("combosSearch").style.display = "block";
               this._enableRelaciones(this.config.layers);
             }
@@ -136,11 +137,11 @@ define([
         dojo.byId("labelPozos").innerHTML = "<label>Seleccione el pozo</label>";
         var jsonPozos = {};
         jsonPozos.pozos = [];
-        selectedItems.pozos = results;
+        selectedItems.pozo = results;
         results.features.forEach(function (elemento) {
           var jsonPozo = {};
-          jsonPozo["nombre"] = elemento.attributes.pozo;
-          jsonPozo["id_pozo"] = elemento.attributes.id_pozo;
+          jsonPozo["nombre"] = elemento.attributes.POZO;
+          jsonPozo["id_pozo"] = elemento.attributes.ID_POZO;
           jsonPozos.pozos.push(jsonPozo);
         });
         this._crearCombo(jsonPozos.pozos, "selectPozos", "selectPozos", "nombre");
@@ -148,17 +149,17 @@ define([
         select.on('change', lang.hitch(this, function () {
           this._consulta(this.config.urlPozos, ["pozo", "id_pozo"], "pozo", "id_pozo=" + select.item.id_pozo, this._zoomFeatures, true);
         }));
-        this._agregarLayer(this.configCapas.capaPozos.url, this.configCapas.capaPozos.id, "pozo is not null and id_pozo is not null and id_facilidad=" + results.features[0].attributes.id_facilidad, popupPozos);
+        this._agregarLayer(this.configCapas.capaPozos.url, this.configCapas.capaPozos.id, "pozo is not null and id_pozo is not null and id_facilidad=" + results.features[0].attributes.ID_FACILIDAD, popupPozos);
       },
       _jsonTanques: function (results) {
         dojo.byId("labelTanques").innerHTML = "<label>Seleccione el taque</label>";
         var jsonTanques = {};
         jsonTanques.tanques = [];
-        selectedItems.tanques = results;
+        selectedItems.tanque = results;
         results.features.forEach(function (elemento) {
           var jsonTanque = {};
-          jsonTanque["nombre"] = elemento.attributes.tanque;
-          jsonTanque["id_tanque"] = elemento.attributes.id_tanque;
+          jsonTanque["nombre"] = elemento.attributes.TANQUE;
+          jsonTanque["id_tanque"] = elemento.attributes.ID_TANQUE;
           jsonTanques.tanques.push(jsonTanque);
         });
         this._crearCombo(jsonTanques.tanques, "selectTanques", "selectTanques", "nombre");
@@ -166,18 +167,18 @@ define([
         select.on('change', lang.hitch(this, function () {
           this._consulta(this.config.urlTanques, ["tanque", "id_tanque"], "tanque", "id_tanque=" + select.item.id_tanque, this._zoomFeatures, true);
         }));
-        this._agregarLayer(this.configCapas.capaTanques.url, this.configCapas.capaTanques.id, "tanque is not null and id_tanque is not null and id_facilidad=" + results.features[0].attributes.id_facilidad, popupTanques);
+        this._agregarLayer(this.configCapas.capaTanques.url, this.configCapas.capaTanques.id, "tanque is not null and id_tanque is not null and id_facilidad=" + results.features[0].attributes.ID_FACILIDAD, popupTanques);
 
       },
       _jsonMedidores: function (results) {
         dojo.byId("labelMedidores").innerHTML = "<label>Seleccione el medidor</label>";
         var jsonMedidores = {};
         jsonMedidores.medidores = [];
-        selectedItems.medidores = results;
+        selectedItems.medidor = results;
         results.features.forEach(function (elemento) {
           var jsonmedidor = {};
-          jsonmedidor["nombre"] = elemento.attributes.medidor;
-          jsonmedidor["id_medidor"] = elemento.attributes.id_medidor;
+          jsonmedidor["nombre"] = elemento.attributes.MEDIDOR;
+          jsonmedidor["id_medidor"] = elemento.attributes.ID_MEDIDOR;
           jsonMedidores.medidores.push(jsonmedidor);
         });
         this._crearCombo(jsonMedidores.medidores, "selectMedidores", "selectMedidores", "nombre");
@@ -185,7 +186,7 @@ define([
         select.on('change', lang.hitch(this, function () {
           this._consulta(this.config.urlMedidores, ["medidor", "id_medidor"], "medidor", "id_medidor=" + select.item.id_medidor, this._zoomFeatures, true);
         }));
-        this._agregarLayer(this.configCapas.capaMedidores.url, this.configCapas.capaMedidores.id, "medidor is not null and id_medidor is not null and id_facilidad=" + results.features[0].attributes.id_facilidad, popupMedidores);
+        this._agregarLayer(this.configCapas.capaMedidores.url, this.configCapas.capaMedidores.id, "medidor is not null and id_medidor is not null and id_facilidad=" + results.features[0].attributes.ID_FACILIDAD, popupMedidores);
       },
       _crearSelect: function (array, nam, label, domId, clave) {
         var combo = dijit.byId(domId + "-" + nam);
@@ -278,13 +279,14 @@ define([
           this.map.setExtent(extentResultado);
         }
 
-        if (results.fields.find(d => d.name == "id_facilidad")) {
+        if (results.fields.find(d => d.name == "ID_FACILIDAD")) {
           selectedItems.facilidad = results;
         }
       },
       _crearFeature: function (checked, b) {
 
-        var nameLayer = b;
+        var nameLayer = b.key;
+        nameLayer=nameLayer.toLowerCase();
         var layerTemp = this.map.getLayer(nameLayer);
 
         if (layerTemp) {
@@ -296,7 +298,7 @@ define([
           var localSpatialReference = new SpatialReference({ wkid: 4326 });
 
 
-          var localColor = this.config.layers[nameLayer].color;
+          var localColor = b.color;
           var symbol = new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color(localColor), 2);
           symbol.setMarker({
             style: "arrow",
@@ -323,44 +325,41 @@ define([
               "geometryType": geometryType
             }
           };
-          featureCollection.layerDefinition.fields.push(this._newFieldString("inicio", "Inicio", 50));
-          featureCollection.layerDefinition.fields.push(this._newFieldString("fin", "Fin", 50));
+          featureCollection.layerDefinition.fields.push(this._newFieldString("origen", "Origen", 50));
+          featureCollection.layerDefinition.fields.push(this._newFieldString("destino", "Destino", 50));
 
-          infoTemplate = new InfoTemplate("Enlace", "Inicio : ${inicio}<br/> Fin : ${fin}");
+          infoTemplate = new InfoTemplate("Enlace", "Origen : ${origen}<br/> Destino : ${destino}");
 
-          var coordinates = selectedItems[nameLayer].features.map((currentValue) => {
+          var coordinates = selectedItems[nameLayer].features.map((currentValue, index) => {
             var t = [];
             t.push([selectedItems.facilidad.features[0].geometry.x, selectedItems.facilidad.features[0].geometry.y])
             t.push([currentValue.geometry.x, currentValue.geometry.y]);
-            return t;
-          }).reduce(
-            (accumulator, currentValue) => {
-              accumulator.push(currentValue);
-              return accumulator;
-            }
-            , []
-          );;
-
-          for (var i = 0; i < coordinates.length; i++) {
-            var line = new Polyline(coordinates[i]);
 
             var graphic = {
               'attributes': {
-                "objectid": i,
-                "inicio": "uno",
-                "fin": "dos"
+                "objectid": index,
+                "origen": selectedItems.facilidad.features[0].attributes.FACILIDAD,
+                "destino": currentValue.attributes[b.key]
               },
-              'geometry': line
+              'geometry': new Polyline(t)
             }
-            featureCollection.featureSet.features.push(graphic);
-          }
+
+            return graphic;
+          });
+
+
+
+
+          featureCollection.featureSet.features = coordinates;
+
           featureLayerk = new FeatureLayer(featureCollection, {
             id: nameLayer,
+            title: b.layerLabel,
             infoTemplate: infoTemplate
           });
           featureLayerk.attr("label", nameLayer);
           var extentResultado = graphicsUtils.graphicsExtent(featureCollection.featureSet.features);
-          extentResultado = extentResultado.expand(2);          
+          extentResultado = extentResultado.expand(2);
           this.map.setExtent(extentResultado);
           featureLayerk.setRenderer(renderer);
           this.map.addLayer(featureLayerk);
@@ -426,18 +425,18 @@ define([
       },
       _enableRelaciones: function (layers) {
         document.getElementById("relaciones").style.display = "block";
-        if (typeof (checkBoxes) === 'undefined') {
-          checkBoxes = Object.keys(layers).map(d => { return { name: d } });
-          checkBoxes.forEach(lang.hitch(this, function (element) {
-            dojo.byId(`lbl${element.name}`).innerText = element.name;
+        if (this.checkBoxes === null) {
+          this.checkBoxes = Object.keys(layers).map((d) => { return layers[d] });
+          this.checkBoxes.forEach(lang.hitch(this, function (element) {
+            dojo.byId(`lbl${element.key}`).innerText = element.layerLabel;
             var checkBox = new CheckBox({
-              name: element.name,
-              value: element.name,
-              label: element.name,
+              name: element.key,
+              value: element.key,
+              label: element.layerLabel,
               showLabel: false,
               checked: false,
-              onChange: lang.hitch(this, function (ischecked) { this._crearFeature(ischecked, element.name) }),
-            }, `cbox${element.name}`);
+              onChange: lang.hitch(this, function (ischecked) { this._crearFeature(ischecked, element) }),
+            }, `cbox${element.key}`);
             checkBox.startup();
             element['dijit'] = checkBox;
           }));
